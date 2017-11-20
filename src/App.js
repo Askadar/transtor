@@ -1,33 +1,33 @@
 import React, { Component } from 'react';
 import axios from 'axios';
 import {  withScriptjs, withGoogleMap, GoogleMap, Marker } from "react-google-maps"
-import { MarkerClusterer } from 'react-google-maps/lib/components/addons/MarkerClusterer';
+
+// import { MarkerClusterer } from 'react-google-maps/lib/components/addons/MarkerClusterer';
+
+import Rx from 'rxjs/Rx';
 
 import logo from './logo.svg';
 import './App.css';
 
 const precision = 1e5;
-const Map = withScriptjs(withGoogleMap(({stops}) =>
+
+const Map = withScriptjs(withGoogleMap(({stops, updateSelectFromMarker}) =>
 <GoogleMap
     defaultZoom={12}
     defaultCenter={{ lat: 53.9006102, lng: 27.5623241 }}
 	>
-	<MarkerClusterer
-    //   onClick={props.onMarkerClustererClick}
-      averageCenter
-      enableRetinaIcons
-      gridSize={60}
-    >
-		{stops
-			.map(({lat, lng, ...rest}) => ({lat: lat/precision, lng: lng/precision, ...rest}))
-			.filter(({lat, lng}) => lat !== 0 || lng !== 0)
-			.map(({id, lat, lng, name}) =>
-			<Marker
-				position={{lat, lng}}
-				label={`${id} - ${name}`}
-			/>
-		)}
-	</MarkerClusterer>
+        <div>
+    		{stops
+    			.map(({id, lat, lng, name}, index) =>
+    			<Marker
+                    noRedraw
+                    key={index}
+                    onClick={() => updateSelectFromMarker(id)}
+    				position={{lat, lng}}
+    				label={`${id} - ${name}`}
+    			/>
+    		)}
+        </div>
 </GoogleMap>))
 
 class App extends Component {
@@ -37,69 +37,99 @@ class App extends Component {
 		rRows: [],
 		rHeader: [],
         stops: {},
-        selectedStop: null
+        selectedStop: null,
+        mapboxCenter: [27.5623241, 53.9006102],
 	}
 	componentDidMount(){
 		axios.get('/stops.txt')
 			.then(resp => {
 				const { data } = resp;
 				let rows = data.split('\n');
-				let header = rows.splice(0,1)[0];
-                let stops = {}
-                // basic object
-                rows
-                    .map(row => row.split(';'))
-                    .forEach(([id, city, area, street, name, info, lng, lat, rawStops, stopnum, garbo]) =>{
-                        if (!id)
-                            return;
-                        stops[id] = {
-                            id, city, area, street, name, info, lng, lat, rawStops, stopnum
-                    }
-                })
-                // linked object
-                Object.values(stops).forEach(stop => {
-                    stop.rawStops.split(',')
-                    .filter(a => a.length > 0)
-                    .forEach(connectedStop => {
-                            if (!connectedStop)
-                                return;
-                            stops[connectedStop].related = stops[connectedStop].related || {};
-                            stops[connectedStop].related[stop.id] = stop;
-                            stop.related = stop.related || {};
-                            stop.related[connectedStop] = stops[connectedStop];
-                            if (!stop.name && stop.related[0] && stop.related[0].name)
-                                stop.name = stop.related[0].name;
-                        }
+                let header = rows.splice(0,1)[0];
+                const $dataStream = Rx.Observable.of(...rows).bufferCount(50);
+                const $timer = Rx.Observable.interval(20);
+                const $zip = Rx.Observable.zip($dataStream,$timer).flatMap(both => both[0])
+                const rxRef = this;
+                $zip
+                    .map(rawRow => rawRow.split(';'))
+                    .map(
+                        ([id, city, area, street, name, info, lng, lat, rawStops, stopnum, garbo]) =>
+                        ({id, city, area, street, name, info, lng: lng/precision, lat: lat/precision, rawStops, stopnum})
                     )
-                })
-				// console.log([header, data]);
+                    .reduce((stops, row, index) =>{
+                            if (!row.id)
+                                return stops;
+                            let name = row.name;
+                            if(name === '')
+                                name = Object.values(stops).slice(-1)[0].name;
+                            stops[row.id] = {...row, name};
+                            return stops;
+                    }, {})
+                    .map(stops => {
+                        Object.values(stops).forEach(stop => {
+                            stop.rawStops
+                                .split(',')
+                                .forEach(connectedStop => {
+                                        stop.related = stop.related || {};
+                                        if (!connectedStop)
+                                            return;
+                                        stops[connectedStop].related = stops[connectedStop].related || {};
+                                        stops[connectedStop].related[stop.id] = stop;
+                                        stop.related[connectedStop] = stops[connectedStop];
+                                    }
+                                )
+                        })
+                        return stops;
+                    })
+                    .subscribe(stops => {
+                        rxRef.buildRoutes();
+                        rxRef.setState({stops})
+                    });
 				this.setState({
-                    stops,
+                    // stops,
 					header: header.split(';'),
 					rows: rows
-                        .sort((a, b) => +a[0] - +b[0])
+                        // .sort((a, b) => +a[0] - +b[0])
 						.filter((r, i) => i < 50)
 				});
 			})
 			.catch(err => console.warn(err));
-		axios.get('/routes.txt')
-			.then(resp => {
-				const { data } = resp;
-				let rows = data.split('\n');
-				let header = rows.splice(0,1)[0];
-				// console.log([header, data]);
-				this.setState({
-					rHeader: header.split(';'),
-					rRows: rows
-						.map( row => row.split(';'))
-                        .sort((a, b) => +a[12] - +b[12])
-						.filter((r, i) => i < 50)
-				});
-			})
-			.catch(err => console.warn(err));
+
 	}
+    buildRoutes(){
+        axios.get('/routes.txt')
+            .then(resp => {
+                const { data } = resp;
+                let rows = data.split('\n');
+                let header = rows.splice(0,1)[0];
+                rows = rows
+                    .map(row => row.split(';'))
+                    .map(([rn, a, city, transport, operator, validityPeriods, specialDates, routeTag, routeType, commercial, routeName, weekdays, id, entry, rawStops, garb, date
+                        ]) =>
+                        ({rn, a, city, transport, operator, validityPeriods, specialDates, routeTag, routeType, commercial, routeName, weekdays, id, entry, rawStops, garb, date}))
+                    .filter(a => a.id)
+                    .map(({ rawStops, ...row}) => ({ ...row, connectedStops: rawStops.split(',')  }))
+            let routes = rows.reduce((_routes, route) => {
+                route.connectedStops = route.connectedStops.reduce((cStops, stopId, i) => {
+                    // this.state[stopId].inRoutes = [] || this.state[stopId].inRoutes;
+                    cStops[stopId] = this.state.stops[stopId]
+                    // this.state[stopId].inRoutes.push([route, i]);
+                    return cStops;
+                }, {})
+                _routes[route.id] = route;
+                return _routes;
+            }, {})
+            console.log(routes);
+            this.setState({
+                rHeader: header.split(';'),
+                rRows: rows,
+                routes
+            });
+        })
+        .catch(err => console.warn(err));
+    }
 	render() {
-		const { rows, header, rHeader, rRows, stops, selectedStop } = this.state;
+		const { header, stops, selectedStop, mapboxCenter } = this.state;
 		return (<div className="App">
             <style>
                 {`td {
@@ -111,70 +141,75 @@ class App extends Component {
 				<img src={logo} className="App-logo" alt="logo"/>
 				<h1 className="App-title">Welcome to React</h1>
 			</header>
-				<Map
-					  isMarkerShown
-					  googleMapURL="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"
-					  loadingElement={<div style={{ height: `100%` }} />}
-					  containerElement={<div style={{ height: `800px` }} />}
-					  mapElement={<div style={{ height: `100%` }} />}
-                      stops={selectedStop ?
-                          [{...selectedStop},
-                              ...Object
-                              .values(selectedStop.related)] : []
-                      }
-					>
-				</Map>
 			<div>
-				<table>
-					<thead></thead>
-					<tbody>
-						<tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Lng</th>
-                            <th>Lat</th>
-                            <th>Related</th>
-						</tr>
-						{Object.values(stops)
-                            .filter((a,i) => i < 900)
-                            .map(({id, name, lat, lng, related}) => {
-							return(
-                                <tr key={id}
-                                    onClick={
-                                    () => this.setState({selectedStop: stops[id]})
-                                }>
-                                    <td>{id}</td>
-                                    <td>{name}</td>
-                                    <td>{lng}</td>
-                                    <td>{lat}</td>
-                                    <td>
-                                        {
-                                            Object.values(related)
-                                            .map(
-                                                ({name: rName, lng: rLng, lat: rLat}) =>
-                                            `${rName} - ${rLng}:${rLat}`
-                                        )}
-                                    </td>
-    							</tr>)
-						})}
-					</tbody>
-				</table>
-				{/* <table>
-					<thead></thead>
-					<tbody>
-						<tr>
-							{rHeader.map(title => <th key={title}>{title}</th>)}
-						</tr>
-						{rRows.map(row => {
-							return <tr key={row[0]}>
-								{row.map((cell, i) => <td key={row[0] + i}>{cell}</td>)}
-							</tr>
-						})}
-					</tbody>
-				</table> */}
-			</div>
+            <Map
+                  isMarkerShown
+                  googleMapURL="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"
+                  loadingElement={<div style={{ height: `100%` }} />}
+                  containerElement={<div style={{ height: `calc(100vh - 200px)` }} />}
+                  mapElement={<div style={{ height: `100%` }} />}
+                  updateSelectFromMarker={id => this.setState({selectedStop: stops[id]})}
+                  stops={selectedStop ?
+                    [{...selectedStop},
+                        ...Object
+                        .values(selectedStop.related)] : []
+                  }
+                >
+            </Map>
+            </div>
+
+            <Table
+                stops={stops}
+                visible
+                handleSelectedStop={(id) => this.setState({selectedStop: stops[id]})}
+            />
 		</div>);
 	}
 }
+class Table extends Component {
+    shouldComponentUpdate(newProps){
+        return this.props.stops !== newProps.stops;
+    }
+    render() {
+        const {stops, handleSelectedStop, visible} = this.props;
+        return (
+            <table style={{width: '80vw', display: visible ? 'table' : 'none'}}>
+                <thead></thead>
+                <tbody>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Lng</th>
+                        <th>Lat</th>
+                        <th>Related</th>
+                    </tr>
+                    {Object.values(stops)
+                        // .filter((a,i) => i < 50)
+                        .map(({id, name, lat, lng, related, city, area, street}) => {
+                        return(
+                            <tr key={id}
+                                onClick={
+                                () => handleSelectedStop(id)
+                            }>
+                                <td>{id}</td>
+                                <td>{name}</td>
+                                <td>{lng}</td>
+                                <td>{lat}</td>
+                                <td><pre>
+                                    {
+                                        Object.values(related)
+                                        .map(
+                                            ({name: rName, id: rId}) =>
+                                        `${rName}[${rId}]`
+                                    ).join(', \n')}
+                                </pre></td>
+                            </tr>)
+                    })}
+                </tbody>
+            </table>
+        )
+    }
+}
+
 
 export default App;
