@@ -9,7 +9,7 @@ const GMap = ReactMapboxGl({
   hash: true,
   // scrollZoom: false,
 });
-const Map = ({mapboxCenter}) =>
+const Map = ({ mapboxCenter, selectedStop, handleSelectedMarker}) =>
 <GMap
     style="mapbox://styles/mapbox/streets-v8"
     center={mapboxCenter}
@@ -31,11 +31,11 @@ const Map = ({mapboxCenter}) =>
                         key={id}
                         coordinates={[lng, lat]}
                         onScroll={e => console.log(e) || e}
-                        onClick={(() => console.log(id,stops) || this.setState({selectedStop: stops[id]}))}
+                        onClick={(() => handleSelectedMarker(id))}
                         >{`[${id}] - ${name}`}</Feature>)
               }
           </Layer>
-    {(selectedStop ?
+    {/* {(selectedStop ?
       [{...selectedStop},
           ...Object
           .values(selectedStop.related)] : [])
@@ -45,10 +45,8 @@ const Map = ({mapboxCenter}) =>
               coordinates={[lng, lat]}
               onScroll={e => console.log(e) || e}
               onClick={(() => console.log(id,stops) || this.setState({selectedStop: stops[id]}))}
-              >{`[${id}] - ${name}`}</GMarker>)
+              >{`[${id}] - ${name}`}</GMarker>) */}
     }
-
-
 </GMap>
 
 export default Map

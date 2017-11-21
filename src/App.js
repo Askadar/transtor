@@ -1,35 +1,18 @@
 import React, { Component } from 'react';
 import axios from 'axios';
-import {  withScriptjs, withGoogleMap, GoogleMap, Marker } from "react-google-maps"
+import Rx from 'rxjs/Rx';
+import { observer } from 'mobs-react';
 
+import Map from './Map';
 // import { MarkerClusterer } from 'react-google-maps/lib/components/addons/MarkerClusterer';
 
-import Rx from 'rxjs/Rx';
 
 import logo from './logo.svg';
 import './App.css';
 
 const precision = 1e5;
 
-const Map = withScriptjs(withGoogleMap(({stops, updateSelectFromMarker}) =>
-<GoogleMap
-    defaultZoom={12}
-    defaultCenter={{ lat: 53.9006102, lng: 27.5623241 }}
-	>
-        <div>
-    		{stops
-    			.map(({id, lat, lng, name}, index) =>
-    			<Marker
-                    noRedraw
-                    key={index}
-                    onClick={() => updateSelectFromMarker(id)}
-    				position={{lat, lng}}
-    				label={`${id} - ${name}`}
-    			/>
-    		)}
-        </div>
-</GoogleMap>))
-
+@observer
 class App extends Component {
 	state = {
 		rows: [],
