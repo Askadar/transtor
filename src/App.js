@@ -1,9 +1,12 @@
 import React, { Component } from 'react';
 import axios from 'axios';
 import Rx from 'rxjs/Rx';
-import { observer } from 'mobs-react';
+import { observer, inject } from 'mobx-react';
+import { observable } from 'mobx';
+import { getObjectValues } from './utils';
 
 import Map from './Map';
+import Overlay from './Overlay';
 // import { MarkerClusterer } from 'react-google-maps/lib/components/addons/MarkerClusterer';
 
 
@@ -12,17 +15,21 @@ import './App.css';
 
 const precision = 1e5;
 
-@observer
+@inject('Pathing', 'Main') @observer
 class App extends Component {
-	state = {
-		rows: [],
-		header: [],
-		rRows: [],
-		rHeader: [],
-        stops: {},
-        selectedStop: null,
-        mapboxCenter: [27.5623241, 53.9006102],
-	}
+    constructor(p){
+        super(p);
+        this.state = {
+    		rows: [],
+    		header: [],
+    		rRows: [],
+    		rHeader: [],
+            stops: {},
+            selectedStop: null,
+            mapboxCenter: [27.5623241, 53.9006102],
+    	}
+    }
+
 	componentDidMount(){
 		axios.get('/stops.txt')
 			.then(resp => {
@@ -46,6 +53,7 @@ class App extends Component {
                             if(name === '')
                                 name = Object.values(stops).slice(-1)[0].name;
                             stops[row.id] = {...row, name};
+                            rxRef.props.Pathing.stops[row.id] = {...row, name};
                             return stops;
                     }, {})
                     .map(stops => {
@@ -54,11 +62,15 @@ class App extends Component {
                                 .split(',')
                                 .forEach(connectedStop => {
                                         stop.related = stop.related || {};
+                                        rxRef.props.Pathing.stops[stop.id].related = rxRef.props.Pathing.stops[stop.id].related || observable.ref();
                                         if (!connectedStop)
                                             return;
                                         stops[connectedStop].related = stops[connectedStop].related || {};
+                                        rxRef.props.Pathing.stops[connectedStop].related = rxRef.props.Pathing.stops[connectedStop].related || observable.ref();
                                         stops[connectedStop].related[stop.id] = stop;
+                                        rxRef.props.Pathing.stops[connectedStop].related[stop.id] = rxRef.props.Pathing.stops[stop.id];
                                         stop.related[connectedStop] = stops[connectedStop];
+                                        rxRef.props.Pathing.stops[stop.id].related[connectedStop] = rxRef.props.Pathing.stops[connectedStop];
                                     }
                                 )
                         })
@@ -90,19 +102,28 @@ class App extends Component {
                     .map(([rn, a, city, transport, operator, validityPeriods, specialDates, routeTag, routeType, commercial, routeName, weekdays, id, entry, rawStops, garb, date
                         ]) =>
                         ({rn, a, city, transport, operator, validityPeriods, specialDates, routeTag, routeType, commercial, routeName, weekdays, id, entry, rawStops, garb, date}))
-                    .filter(a => a.id)
+                    .filter(a => a.id && a.rawStops !== '')
                     .map(({ rawStops, ...row}) => ({ ...row, connectedStops: rawStops.split(',')  }))
-            let routes = rows.reduce((_routes, route) => {
+            let routes = rows.reduce((_routes, route, tempo) => {
+                this.props.Pathing.routes[route.id] = {...route};
+
+                this.props.Pathing.routes[route.id].connectedStops = observable.ref();
                 route.connectedStops = route.connectedStops.reduce((cStops, stopId, i) => {
                     // this.state[stopId].inRoutes = [] || this.state[stopId].inRoutes;
+
+                    this.props.Pathing.routes[route.id].connectedStops[stopId] =
+                    this.props.Pathing.stops[stopId];
                     cStops[stopId] = this.state.stops[stopId]
+
+                    this.props.Pathing.stops[stopId].inRoutes = this.props.Pathing.stops[stopId].inRoutes || observable.ref();
+                    this.props.Pathing.stops[stopId].inRoutes[route.id] = this.props.Pathing.routes[route.id];
                     // this.state[stopId].inRoutes.push([route, i]);
                     return cStops;
                 }, {})
                 _routes[route.id] = route;
                 return _routes;
             }, {})
-            console.log(routes);
+            console.log('finita');
             this.setState({
                 rHeader: header.split(';'),
                 rRows: rows,
@@ -113,6 +134,7 @@ class App extends Component {
     }
 	render() {
 		const { header, stops, selectedStop, mapboxCenter } = this.state;
+		const { Pathing, Main } = this.props;
 		return (<div className="App">
             <style>
                 {`td {
@@ -124,37 +146,46 @@ class App extends Component {
 				<img src={logo} className="App-logo" alt="logo"/>
 				<h1 className="App-title">Welcome to React</h1>
 			</header>
+
 			<div>
             <Map
                   isMarkerShown
                   googleMapURL="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"
                   loadingElement={<div style={{ height: `100%` }} />}
-                  containerElement={<div style={{ height: `calc(100vh - 200px)` }} />}
+                  containerElement={<div style={{ height: `calc(100vh - 240px)` }} />}
                   mapElement={<div style={{ height: `100%` }} />}
-                  updateSelectFromMarker={id => this.setState({selectedStop: stops[id]})}
+                  updateSelectFromMarker={id => this.setState({selectedStop: Pathing.stops[id]})}
                   stops={selectedStop ?
                     [{...selectedStop},
-                        ...Object
-                        .values(selectedStop.related)] : []
+                        ...getObjectValues(selectedStop.related)] : []
                   }
                 >
             </Map>
             </div>
+            <Overlay
+                search={Main.search}
+                handleSearchChanged={value => Main.search = value}
+                routes={Pathing.availableRoutes}
+                >
 
-            <Table
-                stops={stops}
+            </Overlay>
+            {/* <Table
+                stops={this.props.Pathing.stops}
+                selecte
                 visible
-                handleSelectedStop={(id) => this.setState({selectedStop: stops[id]})}
-            />
+                handleSelectedStop={(id) => this.setState({selectedStop: Pathing.stops[id]})}
+            /> */}
 		</div>);
 	}
 }
+@observer
 class Table extends Component {
     shouldComponentUpdate(newProps){
-        return this.props.stops !== newProps.stops;
+        return Object.keys(this.props.stops).length !== Object.keys(newProps.stops).length;
     }
     render() {
         const {stops, handleSelectedStop, visible} = this.props;
+        console.log('table rendered with ', stops);
         return (
             <table style={{width: '80vw', display: visible ? 'table' : 'none'}}>
                 <thead></thead>
@@ -166,8 +197,9 @@ class Table extends Component {
                         <th>Lat</th>
                         <th>Related</th>
                     </tr>
-                    {Object.values(stops)
+                    {getObjectValues(stops)
                         // .filter((a,i) => i < 50)
+                        .filter(a => a&& a.id && a.name)
                         .map(({id, name, lat, lng, related, city, area, street}) => {
                         return(
                             <tr key={id}
@@ -180,7 +212,8 @@ class Table extends Component {
                                 <td>{lat}</td>
                                 <td><pre>
                                     {
-                                        Object.values(related)
+                                        getObjectValues(related)
+                                        .filter(a => a && a.id && a.name)
                                         .map(
                                             ({name: rName, id: rId}) =>
                                         `${rName}[${rId}]`
