@@ -6,6 +6,7 @@ import { observable } from 'mobx';
 import { getObjectValues } from './utils';
 
 import Map from './Map';
+// import SearchBox from "react-google-maps/lib/components/places/SearchBox";
 import Overlay from './Overlay';
 // import { MarkerClusterer } from 'react-google-maps/lib/components/addons/MarkerClusterer';
 
@@ -31,62 +32,45 @@ class App extends Component {
     }
 
 	componentDidMount(){
+        const { Pathing } = this.props;
 		axios.get('/stops.txt')
 			.then(resp => {
 				const { data } = resp;
 				let rows = data.split('\n');
                 let header = rows.splice(0,1)[0];
-                const $dataStream = Rx.Observable.of(...rows).bufferCount(50);
-                const $timer = Rx.Observable.interval(20);
-                const $zip = Rx.Observable.zip($dataStream,$timer).flatMap(both => both[0])
-                const rxRef = this;
-                $zip
+                // const $dataStream = Rx.Observable.of(...rows).bufferCount(50);
+                // const $timer = Rx.Observable.interval(20);
+                // const $zip = Rx.Observable.zip($dataStream,$timer).flatMap(both => both[0])
+                // const rxRef = this;
+                rows = rows
                     .map(rawRow => rawRow.split(';'))
                     .map(
                         ([id, city, area, street, name, info, lng, lat, rawStops, stopnum, garbo]) =>
                         ({id, city, area, street, name, info, lng: lng/precision, lat: lat/precision, rawStops, stopnum})
-                    )
-                    .reduce((stops, row, index) =>{
+                    );
+                rows
+                    .forEach((row, index) =>{
                             if (!row.id)
-                                return stops;
+                                return;
                             let name = row.name;
                             if(name === '')
-                                name = Object.values(stops).slice(-1)[0].name;
-                            stops[row.id] = {...row, name};
-                            rxRef.props.Pathing.stops[row.id] = {...row, name};
-                            return stops;
-                    }, {})
-                    .map(stops => {
-                        Object.values(stops).forEach(stop => {
-                            stop.rawStops
-                                .split(',')
-                                .forEach(connectedStop => {
-                                        stop.related = stop.related || {};
-                                        rxRef.props.Pathing.stops[stop.id].related = rxRef.props.Pathing.stops[stop.id].related || observable.ref();
-                                        if (!connectedStop)
-                                            return;
-                                        stops[connectedStop].related = stops[connectedStop].related || {};
-                                        rxRef.props.Pathing.stops[connectedStop].related = rxRef.props.Pathing.stops[connectedStop].related || observable.ref();
-                                        stops[connectedStop].related[stop.id] = stop;
-                                        rxRef.props.Pathing.stops[connectedStop].related[stop.id] = rxRef.props.Pathing.stops[stop.id];
-                                        stop.related[connectedStop] = stops[connectedStop];
-                                        rxRef.props.Pathing.stops[stop.id].related[connectedStop] = rxRef.props.Pathing.stops[connectedStop];
-                                    }
-                                )
-                        })
-                        return stops;
+                                name = Pathing.stops[rows[index-1].id].name;
+                            Pathing.stops[row.id] = {...row, name};
                     })
-                    .subscribe(stops => {
-                        rxRef.buildRoutes();
-                        rxRef.setState({stops})
-                    });
-				this.setState({
-                    // stops,
-					header: header.split(';'),
-					rows: rows
-                        // .sort((a, b) => +a[0] - +b[0])
-						.filter((r, i) => i < 50)
-				});
+                getObjectValues(Pathing.stops).forEach(stop => {
+                    stop.rawStops
+                        .split(',')
+                        .forEach(connectedStop => {
+                            Pathing.stops[stop.id].related = Pathing.stops[stop.id].related || observable.ref();
+                            if (!connectedStop)
+                                return;
+                            Pathing.stops[connectedStop].related = Pathing.stops[connectedStop].related || observable.ref();
+                            Pathing.stops[connectedStop].related[stop.id] = Pathing.stops[stop.id];
+                            Pathing.stops[stop.id].related[connectedStop] = Pathing.stops[connectedStop];
+                        }
+                    )
+                })
+                this.buildRoutes();
 			})
 			.catch(err => console.warn(err));
 
@@ -155,16 +139,16 @@ class App extends Component {
                   containerElement={<div style={{ height: `calc(100vh - 240px)` }} />}
                   mapElement={<div style={{ height: `100%` }} />}
                   updateSelectFromMarker={id => this.setState({selectedStop: Pathing.stops[id]})}
-                  stops={selectedStop ?
-                    [{...selectedStop},
-                        ...getObjectValues(selectedStop.related)] : []
-                  }
+                  stops={Pathing.availableRoutes && Pathing.availableRoutes.availableStops ? Pathing.availableRoutes.availableStops : []}
+                  routes={Pathing.availableRoutes}
+                  onClick={a => Pathing.selectedRoute.a = a.latLng}
+                  onRightClick={b => Pathing.selectedRoute.b = b.latLng}
                 >
             </Map>
             </div>
             <Overlay
                 search={Main.search}
-                handleSearchChanged={value => Main.search = value}
+                handleSearchChanged={value => Main.searchChanged(Pathing, value)}
                 routes={Pathing.availableRoutes}
                 >
 
