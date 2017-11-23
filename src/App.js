@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import axios from 'axios';
-import Rx from 'rxjs/Rx';
+// import Rx from 'rxjs/Rx';
 import { observer, inject } from 'mobx-react';
 import { observable } from 'mobx';
-import { getObjectValues } from './utils';
+import Hammer from 'react-hammerjs';
 
+import { getObjectValues } from './utils';
 import Map from './Map';
 // import SearchBox from "react-google-maps/lib/components/places/SearchBox";
 import Overlay from './Overlay';
@@ -131,7 +132,6 @@ class App extends Component {
 				<h1 className="App-title">Welcome to React</h1>
 			</header>
 
-			<div>
             <Map
                   isMarkerShown
                   googleMapURL="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"
@@ -140,12 +140,12 @@ class App extends Component {
                   mapElement={<div style={{ height: `100%` }} />}
                   updateSelectFromMarker={id => this.setState({selectedStop: Pathing.stops[id]})}
                   stops={Pathing.availableRoutes && Pathing.availableRoutes.availableStops ? Pathing.availableRoutes.availableStops : []}
-                  routes={Pathing.availableRoutes}
+                  route={Pathing.availableRoutes}
                   onClick={a => Pathing.selectedRoute.a = a.latLng}
-                  onRightClick={b => Pathing.selectedRoute.b = b.latLng}
+                  onRightClick={b => setTimeout(() => Pathing.selectedRoute.b = b.latLng, 10)}
+                  onDblClick={b => setTimeout(() => Pathing.selectedRoute.b = b.latLng, 10)}
                 >
             </Map>
-            </div>
             <Overlay
                 search={Main.search}
                 handleSearchChanged={value => Main.searchChanged(Pathing, value)}
