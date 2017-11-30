@@ -13,7 +13,7 @@ import Overlay from './Overlay';
 
 
 import logo from './logo.svg';
-import './App.css';
+import './App.styl';
 
 const precision = 1e5;
 
@@ -92,12 +92,11 @@ class App extends Component {
             let routes = rows.reduce((_routes, route, tempo) => {
                 this.props.Pathing.routes[route.id] = {...route};
 
-                this.props.Pathing.routes[route.id].connectedStops = observable.ref();
+                this.props.Pathing.routes[route.id].connectedStops = [];
                 route.connectedStops = route.connectedStops.reduce((cStops, stopId, i) => {
                     // this.state[stopId].inRoutes = [] || this.state[stopId].inRoutes;
 
-                    this.props.Pathing.routes[route.id].connectedStops[stopId] =
-                    this.props.Pathing.stops[stopId];
+                    this.props.Pathing.routes[route.id].connectedStops.push(this.props.Pathing.stops[stopId]);
                     cStops[stopId] = this.state.stops[stopId]
 
                     this.props.Pathing.stops[stopId].inRoutes = this.props.Pathing.stops[stopId].inRoutes || observable.ref();
@@ -118,33 +117,28 @@ class App extends Component {
         .catch(err => console.warn(err));
     }
 	render() {
-		const { header, stops, selectedStop, mapboxCenter } = this.state;
+		const { stops, selectedStop, mapboxCenter } = this.state;
 		const { Pathing, Main } = this.props;
-		return (<div className="App">
-            <style>
-                {`td {
-                    border-bottom: 1px solid blue;
-                    cursor: pointer;
-                }`}
-            </style>
-			<header className="App-header">
-				<img src={logo} className="App-logo" alt="logo"/>
-				<h1 className="App-title">Welcome to React</h1>
-			</header>
-
+		return (
+            <div className="App">
             <Map
                   isMarkerShown
                   googleMapURL="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"
                   loadingElement={<div style={{ height: `100%` }} />}
-                  containerElement={<div style={{ height: `calc(100vh - 240px)` }} />}
+                  containerElement={<div style={{ height: '100vh', width: '100vw' }} />}
                   mapElement={<div style={{ height: `100%` }} />}
                   updateSelectFromMarker={id => this.setState({selectedStop: Pathing.stops[id]})}
                   stops={Pathing.availableRoutes && Pathing.availableRoutes.availableStops ? Pathing.availableRoutes.availableStops : []}
+                  steps={
+                      Pathing.availableRoutes && Pathing.availableRoutes.routes && Pathing.availableRoutes.routes[0] ? Pathing.availableRoutes.routes[0] : []
+                  }
                   route={Pathing.availableRoutes}
-                  onClick={a => Pathing.selectedRoute.a = a.latLng}
-                  onRightClick={b => setTimeout(() => Pathing.selectedRoute.b = b.latLng, 10)}
-                  onDblClick={b => setTimeout(() => Pathing.selectedRoute.b = b.latLng, 10)}
-                >
+                  onClick={a => Pathing.selectedPoints.a = a.latLng}
+                  onRightClick={b => setTimeout(() => Pathing.selectedPoints.b = b.latLng, 10)}
+                  onDblClick={b => setTimeout(() => Pathing.selectedPoints.b = b.latLng, 10)}
+                ><div style={
+                    {background: 'red', width: '200px', height: '200px'}
+                }>tt</div>
             </Map>
             <Overlay
                 search={Main.search}
@@ -152,6 +146,9 @@ class App extends Component {
                 routes={Pathing.availableRoutes}
                 >
 
+                        {/* <div style={
+                            {background: 'red', width: '200px', height: '200px'}
+                        }>tt</div> */}
             </Overlay>
             {/* <Table
                 stops={this.props.Pathing.stops}

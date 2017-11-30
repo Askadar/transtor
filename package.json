@@ -46,6 +46,8 @@
     "react-mapbox-gl": "^2.8.0",
     "rxjs": "^5.5.2",
     "style-loader": "0.19.0",
+    "stylus": "^0.54.5",
+    "stylus-loader": "^3.0.1",
     "sw-precache-webpack-plugin": "0.11.4",
     "url-loader": "0.6.2",
     "webpack": "3.8.1",
