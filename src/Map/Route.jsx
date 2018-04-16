@@ -22,6 +22,7 @@ const Route = ({steps, directions}) =>
             to = stops.findIndex(a => a.id === to.id);
             if (i === 3)  debugger;
             return <Polyline
+                key={i}
                 options={{
                     geodesic: true,
                     strokeWeight: 5,
@@ -36,7 +37,7 @@ const Route = ({steps, directions}) =>
         }
     })}
     {
-        directions ? <DirectionsRenderer directions={directions}/> : ''
+        // directions ? <DirectionsRenderer directions={directions}/> : ''
     }
 </div>
 

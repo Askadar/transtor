@@ -1,0 +1,30 @@
+@import '~mixins'
+@import '~variables'
+
+.box
+    display block
+    background white
+    font-size 1rem
+    padding 0.3em 2em
+    box-sizing border-box
+.wide
+    width 100%
+    left 0
+.bottom
+    position fixed
+    bottom 0
+
+.pagination
+    padding 30px 16px
+    cursor pointer
+    tr 1
+    &.disabled
+    &.disabled:hover
+        color #ccc
+        cursor default
+    &:hover
+        color #00a4ff
+.routes-list
+    display flex
+    justify-content space-between
+    align-items center

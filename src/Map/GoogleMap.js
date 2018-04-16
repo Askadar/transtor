@@ -53,7 +53,7 @@ class Map extends React.Component {
         });
     }
     render(){
-        const {stops, steps, route, updateSelectFromMarker, ...rest} = this.props;
+        const {stops, steps, route, updateSelectFromMarker, reverseRoutePoints, children, ...rest} = this.props;
         const { directions } = this.state;
         return (
             <GoogleMap
@@ -62,58 +62,17 @@ class Map extends React.Component {
             {...rest}
         	>
                 <Route steps={steps} directions={directions}></Route>
-        		{/*stops
-        			.map(({id, lat, lng, name}, index) =>
-        			<Marker
-                        noRedraw
-                        key={index}
-                        onClick={() => updateSelectFromMarker(id)}
-        				position={{lat, lng}}
-        				label={`${id} - ${name}`}
-        			/>
-        		)}
-                {route && route.routes && route.routes
-                    .sort((a,b) => a.length - b.length)
-                    // .filter((a,b) => b < 10)
-                    .map((_route, i) => {
-                        const color = Math.round(Math.random()*255);
-                        const width = Math.round(Math.random()*25);
-                        return (<div key={i}>
-                    <Polyline
-                        options={{
-                            geodesic: true,
-                            strokeWeight: width,
-                            strokeColor: `hsla(${color}, 35%, 35%, 0.5)`
-                        }}
-                        path={getObjectValues(_route[1].connectedStops)
-                            .filter((a, i) => i >= _route[1].connectedStops.findIndex(a=>a.id === _route[0].id) &&  i <= _route[1].connectedStops.findIndex(a=>a.id === _route[2].id))
-                            .map(({lat, lng})=> ({lat, lng}))}>
-                    </Polyline>
-                    {_route[3] && <Polyline
-                        options={{
-                            geodesic: true,
-                            strokeWeight: width,
-                            strokeColor: `hsla(${color}, 80%, 80%, 0.3)`
-                        }}
-                        path={getObjectValues(_route[3].connectedStops)
-                            .filter((a, i) => i >= _route[3].connectedStops.findIndex(a=>a.id === _route[2].id) &&  i <= _route[3].connectedStops.findIndex(a=>a.id === _route[4].id))
-                            .map(({lat, lng})=> ({lat, lng}))}>
-                    </Polyline>}
-                    { <Marker
-                        position={{lat: _route[0].lat, lng: _route[0].lng}}
-                        opacity={0.5}
-                        label={`From[${_route[0].id}]`}
-                    />
-                    <Marker position={{lat: _route[2].lat, lng: _route[2].lng}}
-                        label={`To?[${_route[2].id}]{${i}}`}
-                    />
-                    {_route[4] && <Marker opacity={0.5} position={{lat: _route[4].lat, lng: _route[4].lng}}
-                        label={`To[${_route[4].id}]`}
-                    />} }
-                </div>)})
-                */}
-                {route && route.from && <Marker key="A" position={route.from} label="A"/>}
-                {route && route.to && <Marker key="B" position={route.to} label="B"/>}
+        		{route && route.from && <Marker key="A"
+                    position={route.from}
+                    label="A"
+                    onClick={reverseRoutePoints}
+                />}
+                {route && route.to && <Marker key="B"
+                    position={route.to}
+                    label="B"
+                    onClick={reverseRoutePoints}
+                />}
+            {children}
         </GoogleMap>)
     }
 }

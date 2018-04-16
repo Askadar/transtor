@@ -13,6 +13,7 @@ import Overlay from './Overlay';
 
 
 import logo from './logo.svg';
+import './css/ionicons.styl';
 import './App.styl';
 
 const precision = 1e5;
@@ -89,6 +90,10 @@ class App extends Component {
                         ({rn, a, city, transport, operator, validityPeriods, specialDates, routeTag, routeType, commercial, routeName, weekdays, id, entry, rawStops, garb, date}))
                     .filter(a => a.id && a.rawStops !== '')
                     .map(({ rawStops, ...row}) => ({ ...row, connectedStops: rawStops.split(',')  }))
+                rows.forEach((row, index) => {
+                        if (row.rn === '')
+                            rows[index].rn = rows[index-1].rn;
+                    })
             let routes = rows.reduce((_routes, route, tempo) => {
                 this.props.Pathing.routes[route.id] = {...route};
 
@@ -117,7 +122,7 @@ class App extends Component {
         .catch(err => console.warn(err));
     }
 	render() {
-		const { stops, selectedStop, mapboxCenter } = this.state;
+		// const { stops, selectedStop, mapboxCenter } = this.state;
 		const { Pathing, Main } = this.props;
 		return (
             <div className="App">
@@ -133,29 +138,17 @@ class App extends Component {
                       Pathing.availableRoutes && Pathing.availableRoutes.routes && Pathing.availableRoutes.routes[0] ? Pathing.availableRoutes.routes[0] : []
                   }
                   route={Pathing.availableRoutes}
+                  reverseRoutePoints={_ => Pathing.reverseRoutePoints()}
                   onClick={a => Pathing.selectedPoints.a = a.latLng}
-                  onRightClick={b => setTimeout(() => Pathing.selectedPoints.b = b.latLng, 10)}
+                //   onRightClick={b => setTimeout(() => Pathing.selectedPoints.b = console.log([this, b]) || b.latLng, 10)}
                   onDblClick={b => setTimeout(() => Pathing.selectedPoints.b = b.latLng, 10)}
-                ><div style={
-                    {background: 'red', width: '200px', height: '200px'}
-                }>tt</div>
-            </Map>
+            />
             <Overlay
                 search={Main.search}
                 handleSearchChanged={value => Main.searchChanged(Pathing, value)}
                 routes={Pathing.availableRoutes}
                 >
-
-                        {/* <div style={
-                            {background: 'red', width: '200px', height: '200px'}
-                        }>tt</div> */}
             </Overlay>
-            {/* <Table
-                stops={this.props.Pathing.stops}
-                selecte
-                visible
-                handleSelectedStop={(id) => this.setState({selectedStop: Pathing.stops[id]})}
-            /> */}
 		</div>);
 	}
 }
